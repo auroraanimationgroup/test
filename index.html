@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SunoGem AI | Music Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        /* Mobile Viewport Fix */
+        body {
+            min-height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background-color: #09090b;
+            color: #fafafa;
+        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        @keyframes spin-slow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-vinyl { animation: spin-slow 3s linear infinite; }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <header class="h-14 border-b border-zinc-800 flex items-center justify-between px-4 flex-shrink-0 bg-black">
+        <div class="flex items-center gap-2">
+            <div class="flex gap-1.5">
+                <div class="w-3 h-3 rounded-full bg-zinc-800"></div>
+                <div class="w-3 h-3 rounded-full bg-zinc-800"></div>
+            </div>
+            <span class="ml-4 font-black tracking-tighter text-xl text-white">SUNO<span class="text-blue-500">GEM</span></span>
+        </div>
+        
+        <div class="flex items-center gap-2">
+            <button onclick="setView('preview')" id="btn-preview" class="px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white">PLAYER</button>
+            <button onclick="setView('code')" id="btn-code" class="px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white">LYRICS</button>
+            <button onclick="downloadProject()" class="p-2 text-zinc-400 hover:text-white"><i data-lucide="download" class="w-4 h-4"></i></button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        <aside class="w-64 border-r border-zinc-800 flex flex-col hidden md:flex flex-shrink-0 bg-zinc-950">
+            <div class="p-4">
+                <button onclick="createNewProject()" class="w-full bg-blue-600 hover:bg-blue-500 text-white rounded-lg py-2.5 flex items-center justify-center gap-2 font-bold transition-all shadow-lg shadow-blue-900/20">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> New Track
+                </button>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto px-2 space-y-1 custom-scroll" id="project-list">
+                </div>
+
+            <div class="p-4 border-t border-zinc-800 mt-auto">
+                <button onclick="toggleSettings(true)" class="flex items-center gap-3 text-zinc-500 hover:text-white w-full transition-colors">
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                    <span class="text-xs font-bold uppercase tracking-widest">Gemini Settings</span>
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col relative bg-zinc-900/20">
+            <div id="view-preview" class="flex-1 flex flex-col items-center justify-center p-6">
+                <div id="vinyl-container" class="w-64 h-64 bg-zinc-800 rounded-full border-8 border-zinc-900 flex items-center justify-center relative shadow-2xl mb-8 transition-all">
+                    <div class="absolute inset-0 rounded-full border border-white/5"></div>
+                    <i data-lucide="music" class="w-16 h-16 text-zinc-600"></i>
+                    <div class="w-10 h-10 bg-zinc-950 rounded-full border-4 border-zinc-900 absolute"></div>
+                </div>
+                <h2 id="display-title" class="text-2xl font-bold text-center text-white">Silent Studio</h2>
+                <p id="display-style" class="text-blue-500 text-sm font-mono mt-2 uppercase tracking-widest">Awaiting prompt...</p>
+            </div>
+
+            <div id="view-code" class="hidden flex-1 overflow-y-auto p-6 md:p-12">
+                <div class="max-w-2xl mx-auto">
+                    <pre id="output-lyrics" class="whitespace-pre-wrap font-serif text-lg text-zinc-300 leading-relaxed italic">Generate a song to view lyrics...</pre>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer class="p-4 border-t border-zinc-800 bg-black flex-shrink-0">
+        <div class="max-w-4xl mx-auto flex gap-3">
+            <textarea id="user-input" rows="1" class="flex-1 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-blue-500 resize-none" placeholder="Describe style, mood, and topic (e.g., Synthwave about a neon city)..."></textarea>
+            <button onclick="handleSend()" id="send-btn" class="bg-white text-black p-3 rounded-xl hover:bg-blue-400 transition-all flex-shrink-0 shadow-lg">
+                <i data-lucide="sparkles" class="w-5 h-5"></i>
+            </button>
+        </div>
+    </footer>
+
+    <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div class="bg-zinc-900 border border-zinc-800 w-full max-w-md rounded-2xl overflow-hidden shadow-2xl">
+            <div class="p-6 border-b border-zinc-800 flex justify-between items-center bg-black">
+                <h2 class="font-bold text-lg text-white flex items-center gap-2"><i data-lucide="cpu" class="text-blue-500 w-5 h-5"></i> Engine Setup</h2>
+                <button onclick="toggleSettings(false)" class="text-zinc-500 hover:text-white"><i data-lucide="x"></i></button>
+            </div>
+            <div class="p-6 space-y-5">
+                <div>
+                    <label class="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Google Gemini API Key</label>
+                    <input id="setting-key" type="password" placeholder="AIzaSy..." class="w-full bg-black border border-zinc-800 rounded-lg px-4 py-3 text-sm text-blue-400 outline-none focus:border-blue-500 transition-colors">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-black text-zinc-400 uppercase mb-2 tracking-widest">Stable Model Version</label>
+                    <select id="setting-model" class="w-full bg-black border border-zinc-800 rounded-lg px-4 py-3 text-sm text-white outline-none focus:border-blue-500">
+                        <option value="gemini-1.5-flash-latest">Gemini 1.5 Flash (Fast & Stable)</option>
+                        <option value="gemini-1.5-pro-latest">Gemini 1.5 Pro (Advanced Lyrics)</option>
+                        <option value="gemini-pro">Gemini Pro (Legacy Fallback)</option>
+                    </select>
+                </div>
+                <button onclick="saveSettings()" class="w-full bg-blue-600 text-white font-black py-3 rounded-lg hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/30">SAVE & CONNECT</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SYSTEM_PROMPT = `You are a professional Music Composer. Based on the user prompt, write a song.
+        You MUST respond ONLY with a raw JSON object. Do not include markdown formatting, backticks, or extra text.
+        Schema:
+        {
+            "title": "Creative Track Title",
+            "style": "Detailed Musical Style",
+            "lyrics": "[Verse 1]\\n...\\n[Chorus]\\n..."
+        }`;
+
+        // Use a new storage key to force ignore old OpenRouter caches
+        const DB_KEY = 'sunogem_v2_projects';
+        const CFG_KEY = 'sunogem_v2_config';
+        
+        let projects = JSON.parse(localStorage.getItem(DB_KEY) || '[]');
+        let currentId = null;
+
+        function init() {
+            lucide.createIcons();
+            
+            // Auto-resize textarea
+            const tx = document.getElementById('user-input');
+            tx.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = (this.scrollHeight) + 'px';
+            });
+
+            loadSettings();
+            renderProjects();
+        }
+
+        async function handleSend() {
+            const input = document.getElementById('user-input');
+            const key = document.getElementById('setting-key').value;
+            const model = document.getElementById('setting-model').value;
+            const btn = document.getElementById('send-btn');
+            const prompt = input.value.trim();
+
+            if (!prompt) return;
+            if (!key) { 
+                toggleSettings(true); 
+                return; 
+            }
+
+            // Loading state
+            btn.disabled = true;
+            btn.innerHTML = `<div class="w-5 h-5 border-2 border-black border-t-transparent animate-spin rounded-full"></div>`;
+
+            try {
+                // Official Gemini v1beta Endpoint
+                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: `${SYSTEM_PROMPT}\n\nUser Request: ${prompt}` }] }],
+                        generationConfig: { 
+                            temperature: 0.7,
+                            responseMimeType: "application/json" // Force JSON output
+                        }
+                    })
+                });
+
+                // Anti-Crash text bridge
+                const text = await response.text();
+                
+                if (!response.ok) {
+                    let errMsg = "Unknown API Error";
+                    try { errMsg = JSON.parse(text).error.message; } catch(e){}
+                    alert(`Google API Error:\n${errMsg}`);
+                    return;
+                }
+
+                // Parse standard Gemini response
+                const data = JSON.parse(text);
+                const rawContent = data.candidates[0].content.parts[0].text;
+                
+                // Clean up any stray markdown backticks just in case
+                const cleanJsonStr = rawContent.replace(/```json/gi, '').replace(/```/g, '').trim();
+                const result = JSON.parse(cleanJsonStr);
+
+                const proj = { 
+                    id: Date.now(), 
+                    ...result, 
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
+                };
+
+                projects.unshift(proj);
+                localStorage.setItem(DB_KEY, JSON.stringify(projects));
+                
+                loadProject(proj.id);
+                input.value = '';
+                input.style.height = 'auto';
+
+            } catch (e) {
+                console.error(e);
+                alert("Processing Error: Make sure your API key is valid and the model is online.\n\nDetails: " + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="sparkles" class="w-5 h-5"></i>`;
+                lucide.createIcons();
+            }
+        }
+
+        function loadProject(id) {
+            const p = projects.find(x => x.id === id);
+            if(!p) return;
+            
+            currentId = id;
+            document.getElementById('display-title').innerText = p.title || "Untitled";
+            document.getElementById('display-style').innerText = p.style || "Unknown Style";
+            document.getElementById('output-lyrics').innerText = p.lyrics || "No lyrics generated.";
+            
+            // Animate Vinyl
+            const vinyl = document.getElementById('vinyl-container');
+            vinyl.classList.add('animate-vinyl');
+            setTimeout(() => vinyl.classList.remove('animate-vinyl'), 2500);
+            
+            renderProjects();
+        }
+
+        function renderProjects() {
+            const list = document.getElementById('project-list');
+            list.innerHTML = projects.map(p => `
+                <button onclick="loadProject(${p.id})" class="w-full text-left p-3 rounded-lg text-sm transition-all ${currentId === p.id ? 'bg-zinc-800 text-white border-l-2 border-blue-500' : 'text-zinc-500 hover:bg-zinc-900 border-l-2 border-transparent'}">
+                    <div class="font-bold truncate">${p.title}</div>
+                    <div class="text-[10px] opacity-50 uppercase tracking-widest mt-1">${p.time}</div>
+                </button>
+            `).join('');
+        }
+
+        function setView(v) {
+            document.getElementById('view-preview').classList.toggle('hidden', v !== 'preview');
+            document.getElementById('view-code').classList.toggle('hidden', v !== 'code');
+            document.getElementById('btn-preview').className = v === 'preview' ? 'px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+            document.getElementById('btn-code').className = v === 'code' ? 'px-3 py-1 text-xs font-bold rounded bg-blue-600 text-white' : 'px-3 py-1 text-xs font-bold rounded text-zinc-400 hover:text-white';
+        }
+
+        function toggleSettings(show) { 
+            document.getElementById('settings-modal').classList.toggle('hidden', !show); 
+        }
+
+        function saveSettings() {
+            localStorage.setItem(CFG_KEY, JSON.stringify({
+                key: document.getElementById('setting-key').value.trim(),
+                model: document.getElementById('setting-model').value
+            }));
+            toggleSettings(false);
+        }
+
+        function loadSettings() {
+            const saved = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
+            if(saved.key) document.getElementById('setting-key').value = saved.key;
+            if(saved.model) document.getElementById('setting-model').value = saved.model;
+            
+            // Open settings automatically if no key is found
+            if(!saved.key) toggleSettings(true);
+        }
+
+        function createNewProject() {
+            currentId = null;
+            document.getElementById('display-title').innerText = "Silent Studio";
+            document.getElementById('display-style').innerText = "Awaiting prompt...";
+            document.getElementById('output-lyrics').innerText = "Generate a song to view lyrics...";
+            renderProjects();
+        }
+
+        function downloadProject() {
+            const p = projects.find(x => x.id === currentId);
+            if(!p) {
+                alert("Generate or select a song first.");
+                return;
+            }
+            const blob = new Blob([JSON.stringify(p, null, 2)], {type: 'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `SunoGem_${p.title.replace(/\s+/g, '_')}.json`;
+            a.click();
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
+
